@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uploader — Async Review</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="name-gate" class="gate">
+    <div class="gate-card">
+      <h1 class="logo">review<span>.</span></h1>
+      <p class="gate-sub">You're the uploader. What's your name?</p>
+      <form id="name-form">
+        <input id="name-input" type="text" placeholder="e.g. Mohit" autocomplete="off" maxlength="40" required />
+        <button type="submit">Continue</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="crumbs">
+        <span class="logo-sm">review<span>.</span></span>
+        <span class="role-pill">Uploader</span>
+      </div>
+      <div class="who"><strong id="who-name"></strong> <button id="change-name" class="link-btn">change</button>
+        · <a href="/reviewer" class="link-btn">open reviewer →</a></div>
+    </header>
+
+    <main class="uploader-main">
+      <section class="up-panel">
+        <h2>Add videos</h2>
+        <label id="dropzone" class="dropzone" for="file-input">
+          <input id="file-input" type="file" accept="video/*" multiple hidden />
+          <div class="dz-inner">
+            <div class="dz-icon">⬆</div>
+            <p><strong>Drop video files here</strong> or click to choose</p>
+            <p class="muted small">.mp4 recommended. Each up to ~1&nbsp;GB. Uploads go straight to your R2 bucket.</p>
+          </div>
+        </label>
+        <div id="upload-queue" class="upload-queue"></div>
+      </section>
+
+      <section class="up-panel">
+        <div class="lib-head">
+          <h2>Video library</h2>
+          <span id="lib-count" class="muted"></span>
+        </div>
+        <div id="library" class="library"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="banner" class="banner hidden"></div>
+  <script src="config.js"></script>
+  <script>window.APP_ROLE = "uploader";</script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

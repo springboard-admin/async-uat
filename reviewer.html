@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reviewer — Async Review</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Name gate -->
+  <div id="name-gate" class="gate">
+    <div class="gate-card">
+      <h1 class="logo">review<span>.</span></h1>
+      <p class="gate-sub">You're reviewing. What's your name? It'll be shown on your comments.</p>
+      <form id="name-form">
+        <input id="name-input" type="text" placeholder="e.g. Mohit" autocomplete="off" maxlength="40" required />
+        <button type="submit">Start reviewing</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="crumbs">
+        <span class="logo-sm">review<span>.</span></span>
+        <span class="role-pill">Reviewer</span>
+        <select id="video-select" title="Choose a video"></select>
+      </div>
+      <div class="who">Commenting as <strong id="who-name"></strong> <button id="change-name" class="link-btn">change</button></div>
+    </header>
+
+    <main class="main">
+      <section class="stage">
+        <div id="video-empty" class="video-empty">
+          <p>No videos have been uploaded yet.</p>
+          <p class="muted">Ask whoever holds the <strong>/uploader</strong> link to add a clip.</p>
+        </div>
+        <div id="video-wrap" class="video-wrap hidden">
+          <video id="video" playsinline preload="metadata"></video>
+          <div class="scrubber"><div id="track" class="track">
+            <div id="progress" class="progress"></div>
+            <div id="markers" class="markers"></div>
+          </div></div>
+          <div class="controls">
+            <button id="play" class="round-btn" title="Play / pause">▶</button>
+            <span id="time" class="time">0:00 / 0:00</span>
+            <div class="spacer"></div>
+            <button id="mute" class="round-btn" title="Mute">🔊</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <span id="comment-count">0 comments</span>
+          <label class="follow"><input type="checkbox" id="follow-toggle" checked /> follow playhead</label>
+        </div>
+        <div id="comment-list" class="comment-list"></div>
+        <div class="composer">
+          <div class="composer-meta">
+            <span>At <strong id="stamp">0:00</strong></span>
+            <button id="use-current" class="link-btn" title="Pin to the current playback time">use current time</button>
+          </div>
+          <textarea id="comment-text" rows="2" placeholder="Leave a comment at this timestamp…"></textarea>
+          <div class="composer-actions">
+            <button id="record-btn" class="ghost-btn" title="Record a voice note">● Record</button>
+            <span id="record-status" class="rec-status hidden"></span>
+            <div class="spacer"></div>
+            <button id="send-btn" class="primary-btn">Comment</button>
+          </div>
+          <audio id="audio-preview" class="hidden" controls></audio>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="banner" class="banner hidden"></div>
+  <script src="config.js"></script>
+  <script>window.APP_ROLE = "reviewer";</script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
