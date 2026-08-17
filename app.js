@@ -234,7 +234,9 @@ if (ROLE === "uploader") {
     if(!videos.length){ lib.innerHTML=`<div class="empty-note">Nothing uploaded yet.</div>`; return; }
     videos.forEach((v)=>{
       const el=document.createElement("div"); el.className="lib-item";
-      el.innerHTML=`<div class="li-main"><div class="li-title">${escapeHtml(v.title||v.url)}</div><div class="li-url">${escapeHtml(v.url)}</div></div>${v.seed?'<span class="li-tag">from config</span>':'<button class="c-del" title="Remove from library">✕</button>'}`;
+      el.innerHTML=`<div class="li-main"><div class="li-title">${escapeHtml(v.title||v.url)}</div><div class="li-url">${escapeHtml(v.url)}</div></div>${v.seed?'<span class="li-tag">from config</span>':'<button class="li-rename link-btn" title="Rename">rename</button><button class="c-del" title="Remove from library">✕</button>'}`;
+      const ren=el.querySelector(".li-rename");
+      if(ren) ren.addEventListener("click",async()=>{ const nt=prompt("New title:", v.title||""); if(nt==null) return; const t=nt.trim(); if(!t) return; try{ const list=await r2GetJson(VIDEOS_KEY,[]); const it=list.find((x)=>x.id===v.id); if(it){ it.title=t; await saveVideosRegistry(list); await loadVideos(); renderLibrary(); banner("Renamed.","ok"); } }catch(e){ banner("Rename failed: "+e.message,"err"); } });
       const del=el.querySelector(".c-del");
       if(del) del.addEventListener("click",async()=>{ try{ const next=(await r2GetJson(VIDEOS_KEY,[])).filter((x)=>x.id!==v.id); await saveVideosRegistry(next); await loadVideos(); renderLibrary(); banner("Removed from library (R2 file not deleted).","ok"); }catch(e){ banner("Remove failed: "+e.message,"err"); } });
       lib.appendChild(el);
