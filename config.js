@@ -1,44 +1,28 @@
 // ============================================================================
-//  CONFIG  —  fill this in once, then never touch it again.
-//  This is the ONLY file you need to edit to get the app running.
+//  CONFIG  —  fill this in once. This is the ONLY file you edit.
+//  Everything (videos, voice notes, AND comments) is stored in Cloudflare R2.
+//  No Firebase / database needed.
 // ============================================================================
 
-// 1) Firebase web-app config (for the comment database, Firestore).
-//    Firebase console -> Project settings -> "Your apps" -> Web app -> Config.
-//    (See README.md, "Step 2".)
-window.FIREBASE_CONFIG = {
-  apiKey: "PASTE_ME",
-  authDomain: "PASTE_ME.firebaseapp.com",
-  projectId: "PASTE_ME",
-  storageBucket: "PASTE_ME.appspot.com",
-  messagingSenderId: "PASTE_ME",
-  appId: "PASTE_ME",
-};
-
-// 2) Cloudflare R2 — used to store VOICE NOTES (audio) uploaded from the browser.
-//    (Videos are uploaded to R2 by you manually; audio is uploaded by the app.)
+// Cloudflare R2 — stores videos, voice notes, and comment JSON.
 //
-//    ⚠️ SECURITY: these credentials ship to every visitor's browser. Mint a token
-//    scoped to THIS ONE BUCKET only (never an account-wide key), and DELETE the
-//    token when the UAT cycle is done. See README.md, "Step 3" + "Step 4".
+// ⚠️ SECURITY: these credentials ship to every visitor's browser. Mint a token
+// scoped to THIS ONE BUCKET only (never account-wide), and DELETE it when the
+// UAT cycle is done. See README.md.
 window.R2_CONFIG = {
-  accountId:       "PASTE_ME",          // Cloudflare account ID
-  accessKeyId:     "PASTE_ME",          // R2 API token — Access Key ID
-  secretAccessKey: "PASTE_ME",          // R2 API token — Secret Access Key
-  bucket:          "uat-review",        // the bucket name you created
-  // Public base URL for playback (bucket's r2.dev URL or your custom domain),
-  // NO trailing slash. e.g. https://pub-xxxxxxxx.r2.dev
-  publicBaseUrl:   "https://pub-PASTE_ME.r2.dev",
+  accountId:       "ef2aa4555cb03bb3865c5e8cbb3ea393",
+  accessKeyId:     "f0b16bba504ff85f38b8307bbeb13128",
+  secretAccessKey: "a6526c244064fd54650d783b32db4d3866af8c32ed4bb96656c14817b9b34c70",
+  bucket:          "mohit-async-uat-tool",
+  publicBaseUrl:   "https://pub-6b5e642e03734b178a639cab64ac31a2.r2.dev",
 };
 
-// 3) (Optional) Pre-load videos so the app isn't empty on first launch.
-//    You can also add videos from inside the app — they save to Firestore and
-//    are shared with everyone. Each URL is a PUBLIC R2 object URL.
+// (Optional) Pre-load videos so the app isn't empty. You can also add them in the
+// uploader UI. Each URL is a public R2 object URL.
 window.SEED_VIDEOS = [
-  // { title: "April Campaign — Brand Animation v2", url: "https://pub-xxxxxxxx.r2.dev/brand-animation-v2.mp4" },
+  // { title: "April Campaign v2", url: "https://pub-xxxx.r2.dev/videos/clip.mp4" },
 ];
 
-// 4) Safety stop for voice notes, in seconds. NOT a hard feature limit — just a
-//    backstop so a forgotten recording can't run forever and eat storage.
-//    Set high (default 15 min). Real notes will be ~3 min or less.
+// Safety backstop for voice notes, in seconds (not a feature limit — just stops a
+// forgotten recording from running forever). Default 15 min.
 window.AUDIO_SAFETY_STOP_SECONDS = 15 * 60;

@@ -1,157 +1,99 @@
 # Async Review — internal UAT tool (MVP)
 
-A lightweight, self-hosted stand-in for flask.do for internal async user-acceptance
+A lightweight self-hosted stand-in for flask.do for internal async user-acceptance
 testing. Upload videos, leave **timestamped text and voice comments**, review async.
 
-**Stack (all free):**
-- **Frontend:** static HTML/CSS/JS, no build step → deployed on Vercel.
-- **Videos + voice notes:** Cloudflare R2 (free tier: 10 GB storage, egress free).
-- **Comments + video registry:** Firebase Firestore (free Spark plan).
-- **Auth:** none — users just type a name. Access is gated only by the unguessable URL.
+**Stack (all free, ONE service):**
+- **Frontend:** static HTML/CSS/JS, no build step → Vercel.
+- **Everything else (videos, voice notes, comments):** Cloudflare R2. No database.
+- **Auth:** none — users type a name. Access gated only by the unguessable URL.
+- **Sync:** none/realtime-free by design. Data loads on page load; hit **↻ refresh**
+  (or reload the page) to pull the latest comments.
 
-**Two routes:**
-- `/uploader` — upload video files (straight to R2) and manage the library.
-- `/reviewer` — watch any video, leave timeline comments. Share this with stakeholders.
-
----
-
-## ⚠️ Read this first (security + cost)
-
-- **R2 credentials live in `config.js`, which ships to every visitor's browser.** Anyone
-  who loads the page can read them and read/write/delete objects **in this one bucket**.
-  This was a deliberate choice for a tiny, short-lived internal tool. To keep the blast
-  radius contained: **create an R2 API token scoped to ONLY this bucket** (Step 4), never
-  an account-wide key, and **delete that token when the UAT cycle ends**.
-- **Firestore rules below are fully open** (anyone with the URL can read/write comments).
-  Fine for a throwaway internal tool; do not reuse this project for anything sensitive.
-- **Cost:** 5×1 GB videos = ~5 GB, half of R2's free 10 GB; egress is free. Firestore free
-  tier is far more than a few reviewers generate. You should stay at $0, but confirm your
-  own usage — I can't guarantee Cloudflare/Google won't change free tiers.
+**Two routes:** `/uploader` (upload videos) and `/reviewer` (watch + comment). Share
+`/reviewer` with stakeholders.
 
 ---
 
-## Step 1 — Get the code onto GitHub
+## ⚠️ Read first (security + cost)
+- **R2 credentials live in `config.js`, served to every visitor.** Anyone with the URL
+  can read/write/delete objects **in this one bucket**. Deliberate choice for a tiny,
+  short-lived tool. Mitigate: mint a token **scoped to only this bucket** (Step 3), and
+  **delete it when done**.
+- **Cost:** 5×1 GB videos ≈ 5 GB of R2's free 10 GB; egress is free; reads/writes are far
+  under the free op limits. Should be $0 — confirm your own usage.
 
+---
+
+## Step 1 — Push the code (repo already has a first commit)
 ```bash
-cd async-review          # the folder these files are in
-git init
-git add .
-git commit -m "Async review MVP"
-# create an empty repo on github.com first, then:
-git remote add origin https://github.com/<you>/async-review.git
-git push -u origin main
+cd async-uat
+git remote add origin https://github.com/<you>/async-uat.git   # if not set
+git branch -M main && git push -u origin main
 ```
+Make the repo **private** (once `config.js` has your keys, they're in the repo).
 
-## Step 2 — Firebase (Firestore) for comments
-
-1. Go to https://console.firebase.google.com → **Add project** (disable Analytics, you don't need it).
-2. **Build → Firestore Database → Create database** → start in **production mode** → pick a region.
-3. Firestore **Rules** tab → paste this and **Publish**:
-
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /{document=**} {
-         allow read, write: if true;   // open: gated only by the unguessable URL
-       }
-     }
-   }
-   ```
-
-4. Project **Settings (gear) → General → Your apps → Web (`</>`)** → register an app →
-   copy the `firebaseConfig` object.
-5. Paste those values into **`config.js`** (`window.FIREBASE_CONFIG`).
-
-> No indexes needed for the MVP. If the browser console ever shows a "create index" link
-> for a query, just click it once.
-
-## Step 3 — Cloudflare R2 bucket for media
-
-1. https://dash.cloudflare.com → **R2**. (Activating R2 asks for a payment method even on
-   the free tier; you won't be charged under the free limits.)
-2. **Create bucket** — e.g. `uat-review`. Note the name.
-3. Open the bucket → **Settings → Public access → R2.dev subdomain → Allow**. Copy the
-   public URL, e.g. `https://pub-xxxxxxxx.r2.dev`. This is `publicBaseUrl` in `config.js`.
-4. Find your **Account ID**: R2 overview page (right sidebar) → this is `accountId`.
-5. Bucket → **Settings → CORS policy → Add**, paste (replace the origins with your real
-   Vercel domain; keep localhost for local testing):
-
+## Step 2 — Create the Cloudflare R2 bucket
+1. https://dash.cloudflare.com → **R2 Object Storage → Enable** (asks for a payment method;
+   free under the limits, you won't be charged).
+2. **Create bucket** → name `uat-review`, location Automatic.
+3. Bucket → **Settings → Public Development URL → Enable** → copy `https://pub-xxxx.r2.dev`.
+4. Bucket → **Settings → CORS Policy → Add** → paste (swap in your real Vercel domain):
    ```json
    [
      {
-       "AllowedOrigins": [
-         "https://YOUR-PROJECT.vercel.app",
-         "http://localhost:8000"
-       ],
-       "AllowedMethods": ["GET", "PUT", "HEAD"],
+       "AllowedOrigins": ["https://YOUR-PROJECT.vercel.app", "http://localhost:8000"],
+       "AllowedMethods": ["GET", "PUT", "HEAD", "DELETE"],
        "AllowedHeaders": ["*"],
        "ExposeHeaders": ["ETag"],
        "MaxAgeSeconds": 3600
      }
    ]
    ```
+   (This same policy covers both the `r2.dev` reads and the S3-API writes/lists/deletes.)
 
-## Step 4 — R2 API token (scoped to ONE bucket)
-
+## Step 3 — Create a bucket-scoped API token
 1. R2 → **Manage R2 API Tokens → Create API token**.
-2. **Permissions: Object Read & Write.**
-3. **Specify bucket** → choose **only** `uat-review`. (Do NOT leave it account-wide.)
-4. Create → copy the **Access Key ID** and **Secret Access Key** (shown once).
-5. Put them + `accountId`, `bucket`, `publicBaseUrl` into **`config.js`** (`window.R2_CONFIG`).
+2. Permissions: **Object Read & Write**.
+3. **Specify bucket → only `uat-review`** (never account-wide).
+4. Copy the **Access Key ID** + **Secret Access Key**. Get your **Account ID** from the
+   R2 overview page.
 
-Your `config.js` is now fully filled in. Commit it:
-
-```bash
-git add config.js && git commit -m "Configure Firebase + R2" && git push
-```
+## Step 4 — Fill `config.js`
+Put `accountId`, `accessKeyId`, `secretAccessKey`, `bucket`, and `publicBaseUrl`
+(the `pub-xxxx.r2.dev` URL) into `window.R2_CONFIG`. Commit + push.
 
 ## Step 5 — Deploy on Vercel
-
-1. https://vercel.com → **Add New → Project → Import** your GitHub repo.
-2. Framework preset: **Other**. No build command, no output dir — it's static.
-3. **Deploy.** You'll get `https://your-project.vercel.app`.
-4. **Go back to Step 3.5 CORS** and make sure your real Vercel domain is in `AllowedOrigins`.
-   Re-save the CORS policy if you had a placeholder.
+1. https://vercel.com → **Add New → Project → Import** the repo.
+2. Framework: **Other**. No build command / output dir (it's static). **Deploy.**
+3. Add the resulting `*.vercel.app` domain to the R2 CORS `AllowedOrigins` (Step 2.4) and re-save.
 
 ## Step 6 — Use it
+- You: `https://your-project.vercel.app/uploader` → drop in `.mp4`s.
+- Stakeholders: `https://your-project.vercel.app/reviewer` → name, pick a video, comment.
+- Comments don't live-update; click **↻ refresh** to pull the latest.
 
-- **You:** open `https://your-project.vercel.app/uploader`, drop in your `.mp4`s.
-- **Stakeholders:** send them `https://your-project.vercel.app/reviewer`.
-- They enter a name, pick a video, scrub to a moment, and leave a text or voice comment.
-  Comments appear live for everyone and are pinned to the timeline.
-
----
-
-## Local testing (optional)
-
+## Local testing
 ```bash
-cd async-review
-python3 -m http.server 8000
+cd async-uat && python3 -m http.server 8000
 # open http://localhost:8000/reviewer.html  and  /uploader.html
 ```
-(Locally the clean `/reviewer` URL isn't rewritten — use the `.html` names. On Vercel the
-clean URLs work.) Keep `http://localhost:8000` in the R2 CORS list while testing.
+Keep `http://localhost:8000` in the R2 CORS list.
 
-## Cleanup when you're done (~30 days)
+## Cleanup (~30 days)
+- Delete the R2 API token, then delete the bucket (removes all videos, audio, comments).
 
-- **Kill credentials:** Cloudflare → R2 → Manage API Tokens → **delete** the token.
-- **Delete media:** R2 → the bucket → delete objects (or delete the bucket).
-- **Delete comments:** Firebase console → Firestore → delete the `comments` and `videos`
-  collections, or just delete the whole Firebase project.
+## Data model (all in R2)
+- `data/videos.json` — array of `{ id, title, url, addedBy, createdAt, size }`
+- `data/comments/<videoId>/<id>.json` — `{ id, videoId, author, t, text, audioUrl, createdAt }`
+- `videos/<ts>-<name>.mp4`, `audio/<videoId>/<id>.webm`
 
-## Data model (for reference)
+## Debugging
+Console is prefixed `[review]`. If something breaks, open DevTools → Console and run
+`copy(__reviewLogs())`, then paste the output to me.
 
-`videos` (Firestore): `{ title, url, createdAt, addedBy, size }`
-`comments` (Firestore): `{ videoId, videoUrl, author, t (seconds), text, audioUrl, createdAt }`
-Media objects in R2: `videos/<ts>-<name>.mp4`, `audio/<videoKey>/<ts>-<rand>.webm`
-
-## Known MVP limitations
-
-- No auth — anyone with the link can view/comment. By design.
-- R2 creds are client-side (see security note). By design, for this short-lived tool.
-- Voice notes need a Chromium-based browser or Safari (uses `MediaRecorder`). No transcription.
-- Video upload is a single PUT — fine up to ~1 GB; very large files on flaky connections
-  may need a retry. Multipart upload was left out to keep the MVP simple.
-- Deleting a video from the library removes it from the list but does **not** delete the
-  file from R2 (clean R2 up manually at the end).
+## Known limitations
+No auth; creds client-side; no realtime (refresh to update); single-PUT upload (~1 GB
+ceiling); voice notes need Chromium/Safari; library delete removes the registry row but
+not the R2 file; the videos registry is read-modify-write, so two people uploading at the
+exact same second could clobber one entry (fine for single-uploader use).
