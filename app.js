@@ -128,7 +128,16 @@ $("name-form").addEventListener("submit",(e)=>{ e.preventDefault(); const v=$("n
 $("change-name").addEventListener("click",()=>{ $("app").classList.add("hidden"); $("name-gate").classList.remove("hidden"); $("name-input").focus(); });
 if (me) showApp();
 
-async function boot(){ await loadVideos(); if(ROLE==="reviewer"){ renderVideoSelect(); if(!currentVideo && videos.length) selectVideo(videos[0].id); } else { renderLibrary(); } }
+async function boot(){
+  await loadVideos();
+  if(ROLE==="reviewer"){
+    renderVideoSelect();
+    const wantV = new URLSearchParams(location.search).get("v");
+    const target = (wantV && videos.find((x)=>x.id===wantV)) ? wantV : (videos[0] && videos[0].id);
+    if(wantV && !videos.find((x)=>x.id===wantV)) banner("That video link wasn't found — showing the latest instead.","err");
+    if(!currentVideo && target) selectVideo(target);
+  } else { renderLibrary(); }
+}
 
 // ===========================================================================
 //  REVIEWER
@@ -234,7 +243,9 @@ if (ROLE === "uploader") {
     if(!videos.length){ lib.innerHTML=`<div class="empty-note">Nothing uploaded yet.</div>`; return; }
     videos.forEach((v)=>{
       const el=document.createElement("div"); el.className="lib-item";
-      el.innerHTML=`<div class="li-main"><div class="li-title">${escapeHtml(v.title||v.url)}</div><div class="li-url">${escapeHtml(v.url)}</div></div>${v.seed?'<span class="li-tag">from config</span>':'<button class="li-rename link-btn" title="Rename">rename</button><button class="c-del" title="Remove from library">✕</button>'}`;
+      el.innerHTML=`<div class="li-main"><div class="li-title">${escapeHtml(v.title||v.url)}</div><div class="li-url">${escapeHtml(v.url)}</div></div><button class="li-copy link-btn" title="Copy reviewer link for this video">copy link</button>${v.seed?'<span class="li-tag">from config</span>':'<button class="li-rename link-btn" title="Rename">rename</button><button class="c-del" title="Remove from library">✕</button>'}`;
+      const cpy=el.querySelector(".li-copy");
+      cpy.addEventListener("click",async()=>{ const link=`${location.origin}/reviewer?v=${encodeURIComponent(v.id)}`; try{ await navigator.clipboard.writeText(link); banner("Reviewer link copied — paste it in Slack.","ok"); }catch{ prompt("Copy this reviewer link:", link); } });
       const ren=el.querySelector(".li-rename");
       if(ren) ren.addEventListener("click",async()=>{ const nt=prompt("New title:", v.title||""); if(nt==null) return; const t=nt.trim(); if(!t) return; try{ const list=await r2GetJson(VIDEOS_KEY,[]); const it=list.find((x)=>x.id===v.id); if(it){ it.title=t; await saveVideosRegistry(list); await loadVideos(); renderLibrary(); banner("Renamed.","ok"); } }catch(e){ banner("Rename failed: "+e.message,"err"); } });
       const del=el.querySelector(".c-del");
