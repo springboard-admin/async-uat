@@ -56,6 +56,30 @@ video{width:100%;background:#000;border-radius:var(--radius);aspect-ratio:16/9;o
 .round-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:14px}
 .round-btn:hover{border-color:var(--accent)}
 .time{color:var(--muted);font-variant-numeric:tabular-nums}
+.controls{flex-wrap:wrap;gap:8px}
+.round-btn{font-size:12px}
+.ghost-btn.sm{padding:6px 10px;font-size:12px}
+.speed{padding:7px 8px;border-radius:9px;background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+.volume{width:90px;accent-color:var(--accent)}
+
+/* ---- Full screen focus mode ---- */
+.video-wrap.fs{max-width:none;margin:0;background:#000;justify-content:flex-end;padding:0 24px 18px;position:relative}
+.video-wrap.fs video{position:absolute;inset:0;height:100%;border-radius:0;aspect-ratio:auto}
+.video-wrap.fs .scrubber,.video-wrap.fs .controls{position:relative;z-index:2}
+.video-wrap.fs .controls{opacity:.25;transition:opacity .2s}
+.video-wrap.fs:hover .controls{opacity:1}
+.video-wrap.fs .round-btn,.video-wrap.fs .ghost-btn,.video-wrap.fs .speed{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2)}
+.video-wrap.fs .time{color:#ddd}
+.video-wrap.fs .track{background:rgba(255,255,255,.2)}
+.fs-card{display:none}
+.video-wrap.fs .fs-card:not(.hidden){display:block;position:absolute;z-index:3;left:50%;bottom:110px;transform:translateX(-50%);width:min(760px,86%);max-height:50%;overflow:auto;background:rgba(10,15,25,.86);color:#fff;border-radius:16px;padding:18px 22px;cursor:pointer;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.fs-item+.fs-item{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15)}
+.fs-meta{display:flex;gap:10px;align-items:center;font-size:13px;color:#cbd2dc;margin-bottom:6px}
+.fs-meta .c-author{color:var(--lime);font-weight:600}
+.fs-meta .c-stamp{color:#cbd2dc;background:rgba(255,255,255,.12)}
+.fs-voice{color:#fff}
+.fs-text{font-size:22px;line-height:1.4;white-space:pre-wrap}
+.fs-hint{margin-top:12px;font-size:12px;color:#9aa3af;text-align:right}
 .spacer{flex:1}
 
 /* ---- Comments ---- */

@@ -166,8 +166,80 @@ if (ROLE === "reviewer") {
   $("play").addEventListener("click",()=>video.paused?video.play():video.pause());
   video.addEventListener("play",()=>$("play").textContent="⏸");
   video.addEventListener("pause",()=>$("play").textContent="▶");
-  $("mute").addEventListener("click",()=>{ video.muted=!video.muted; $("mute").textContent=video.muted?"🔇":"🔊"; });
-  video.addEventListener("timeupdate",()=>{ const d=video.duration||0; progress.style.width=d?(video.currentTime/d)*100+"%":"0%"; $("time").textContent=`${fmt(video.currentTime)} / ${fmt(d)}`; if(followPlayhead){ pinnedTime=video.currentTime; updateStamp(); } highlightActiveComment(); });
+  $("mute").addEventListener("click",()=>{ video.muted=!video.muted; });
+  video.addEventListener("volumechange",()=>{ $("mute").textContent=(video.muted||video.volume===0)?"🔇":"🔊"; $("volume").value=video.muted?0:video.volume; });
+  $("volume").addEventListener("input",(e)=>{ video.volume=+e.target.value; video.muted=video.volume===0; });
+  $("speed").addEventListener("change",(e)=>{ video.playbackRate=+e.target.value; });
+  video.addEventListener("loadeddata",()=>{ video.playbackRate=+$("speed").value; });
+  const skip=(s)=>{ if(video.duration) video.currentTime=Math.min(Math.max(0,video.currentTime+s),video.duration); };
+  $("back10").addEventListener("click",()=>skip(-10));
+  $("fwd10").addEventListener("click",()=>skip(10));
+  // prev/next comment; small epsilon so repeated presses move past the current one
+  const nextComment=()=>comments.find((c)=>c.t>video.currentTime+0.3);
+  const prevComment=()=>[...comments].reverse().find((c)=>c.t<video.currentTime-0.3);
+  function jumpTo(c){ if(!c)return; if(isFs()){ showFsCard([c]); } video.currentTime=c.t; }
+  $("next-comment").addEventListener("click",()=>jumpTo(nextComment()));
+  $("prev-comment").addEventListener("click",()=>jumpTo(prevComment()));
+
+  // ---- full screen: focus mode. Auto-pauses at each comment and shows it as a caption card. ----
+  const wrap=$("video-wrap");
+  const isFs=()=>(document.fullscreenElement||document.webkitFullscreenElement)===wrap;
+  function toggleFs(){
+    if(isFs()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    else (wrap.requestFullscreen||wrap.webkitRequestFullscreen).call(wrap);
+  }
+  $("fs-btn").addEventListener("click",toggleFs);
+  video.addEventListener("dblclick",toggleFs);
+  const onFsChange=()=>{ wrap.classList.toggle("fs",isFs()); if(!isFs()) hideFsCard(false); lastT=video.currentTime||-1; };
+  document.addEventListener("fullscreenchange",onFsChange);
+  document.addEventListener("webkitfullscreenchange",onFsChange);
+
+  let lastT=0, cardOpen=false;
+  const fsAudio=$("fs-audio");
+  function showFsCard(list){
+    video.pause(); cardOpen=true;
+    $("fs-card-items").innerHTML=list.map((c)=>`<div class="fs-item"><div class="fs-meta"><span class="c-author">${escapeHtml(c.author)}</span><span class="c-stamp">${fmt(c.t)}</span>${c.audioUrl?'<span class="fs-voice">🎤 voice note</span>':""}</div>${c.text?`<div class="fs-text">${escapeHtml(c.text)}</div>`:""}</div>`).join("");
+    $("fs-card").classList.remove("hidden");
+    playVoiceQueue(list.filter((c)=>c.audioUrl).map((c)=>c.audioUrl));
+  }
+  // voice notes play back-to-back, then the video resumes on its own
+  function playVoiceQueue(urls){
+    if(!urls.length){ fsAudio.onended=null; return; }
+    fsAudio.src=urls[0];
+    fsAudio.onended=()=>{ if(urls.length>1) playVoiceQueue(urls.slice(1)); else hideFsCard(true); };
+    fsAudio.play().catch((e)=>logErr("fs voice note",e));
+  }
+  function hideFsCard(resume){
+    if(!cardOpen)return; cardOpen=false;
+    fsAudio.pause(); fsAudio.onended=null; fsAudio.removeAttribute("src");
+    $("fs-card").classList.add("hidden");
+    lastT=video.currentTime;
+    if(resume) video.play();
+  }
+  $("fs-card").addEventListener("click",()=>hideFsCard(true));
+  video.addEventListener("seeked",()=>{ lastT=video.currentTime; });
+  function checkFsComments(){
+    const t=video.currentTime;
+    if(isFs() && !video.paused && !cardOpen && t>lastT){
+      const hit=comments.filter((c)=>c.t>lastT && c.t<=t);
+      if(hit.length){ lastT=t; showFsCard(hit); return; }
+    }
+    lastT=t;
+  }
+
+  document.addEventListener("keydown",(e)=>{
+    if(e.target.closest("input,textarea,select") || e.metaKey || e.ctrlKey || e.altKey || !currentVideo) return;
+    const k=e.key.toLowerCase();
+    if(k===" "){ e.preventDefault(); if(cardOpen) hideFsCard(true); else video.paused?video.play():video.pause(); }
+    else if(k==="arrowleft"){ e.preventDefault(); hideFsCard(false); skip(-10); }
+    else if(k==="arrowright"){ e.preventDefault(); hideFsCard(false); skip(10); }
+    else if(k==="f") toggleFs();
+    else if(k==="m") video.muted=!video.muted;
+    else if(k==="n"){ hideFsCard(false); jumpTo(nextComment()); }
+    else if(k==="p"){ hideFsCard(false); jumpTo(prevComment()); }
+  });
+
+  video.addEventListener("timeupdate",()=>{ const d=video.duration||0; progress.style.width=d?(video.currentTime/d)*100+"%":"0%"; $("time").textContent=`${fmt(video.currentTime)} / ${fmt(d)}`; if(followPlayhead){ pinnedTime=video.currentTime; updateStamp(); } highlightActiveComment(); checkFsComments(); });
   video.addEventListener("loadedmetadata",()=>{ $("time").textContent=`0:00 / ${fmt(video.duration)}`; renderMarkers(); });
   video.addEventListener("error",()=>{ if(currentVideo){ logErr("video load",`code=${video.error&&video.error.code} src=${video.currentSrc}`); banner("Video failed to load. Check the R2 URL is public and CORS allows this site.","err"); } });
   track.addEventListener("click",(e)=>{ const r=track.getBoundingClientRect(); const p=(e.clientX-r.left)/r.width; if(video.duration) video.currentTime=p*video.duration; });
