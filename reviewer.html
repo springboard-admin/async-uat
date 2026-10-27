@@ -37,6 +37,9 @@
         </div>
         <div id="video-wrap" class="video-wrap hidden">
           <video id="video" playsinline preload="metadata"></video>
+          <div id="fs-caption" class="fs-caption hidden"></div>
+          <audio id="fs-audio" class="hidden"></audio>
+          <div class="overlay">
           <div class="scrubber"><div id="track" class="track">
             <div id="progress" class="progress"></div>
             <div id="markers" class="markers"></div>
@@ -46,8 +49,8 @@
             <button id="play" class="round-btn" title="Play / pause (Space)">▶</button>
             <button id="fwd10" class="round-btn" title="Forward 10s (→)">10↻</button>
             <span id="time" class="time">0:00 / 0:00</span>
-            <button id="prev-comment" class="ghost-btn sm" title="Previous comment (P)">◀ comment</button>
-            <button id="next-comment" class="ghost-btn sm" title="Next comment (N)">comment ▶</button>
+            <button id="prev-comment" class="ghost-btn sm" title="Previous comment (P)">⏮ 💬</button>
+            <button id="next-comment" class="ghost-btn sm" title="Next comment (N)">💬 ⏭</button>
             <div class="spacer"></div>
             <select id="speed" class="speed" title="Playback speed">
               <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>
@@ -56,10 +59,6 @@
             <input id="volume" class="volume" type="range" min="0" max="1" step="0.05" value="1" title="Volume" />
             <button id="fs-btn" class="round-btn" title="Full screen (F)">⛶</button>
           </div>
-          <div id="fs-card" class="fs-card hidden">
-            <div id="fs-card-items"></div>
-            <audio id="fs-audio" class="hidden"></audio>
-            <div class="fs-hint">Space / click to continue</div>
           </div>
         </div>
       </section>

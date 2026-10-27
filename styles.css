@@ -56,30 +56,35 @@ video{width:100%;background:#000;border-radius:var(--radius);aspect-ratio:16/9;o
 .round-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:14px}
 .round-btn:hover{border-color:var(--accent)}
 .time{color:var(--muted);font-variant-numeric:tabular-nums}
-.controls{flex-wrap:wrap;gap:8px}
-.round-btn{font-size:12px}
-.ghost-btn.sm{padding:6px 10px;font-size:12px}
-.speed{padding:7px 8px;border-radius:9px;background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
-.volume{width:90px;accent-color:var(--accent)}
+/* ---- Player: controls overlay the video, YouTube-style ---- */
+.video-wrap{position:relative;display:block;border-radius:var(--radius);overflow:hidden;background:#000}
+.video-wrap video{display:block;border-radius:0;cursor:pointer}
+.overlay{position:absolute;left:0;right:0;bottom:0;padding:28px 14px 10px;background:linear-gradient(transparent,rgba(0,0,0,.55));transition:opacity .25s;z-index:2}
+.video-wrap.idle .overlay{opacity:0;pointer-events:none}
+.video-wrap.idle{cursor:none}
+.overlay .scrubber{margin-bottom:8px}
+.overlay .track{height:4px;background:rgba(255,255,255,.3);transition:height .15s}
+.overlay .track:hover{height:7px}
+.overlay .marker{background:var(--lime);height:12px;top:-4px}
+.overlay .controls{gap:4px;flex-wrap:nowrap}
+.overlay .round-btn,.overlay .ghost-btn{width:auto;height:32px;min-width:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:#fff;font-size:13px}
+.overlay .round-btn:hover,.overlay .ghost-btn:hover{background:rgba(255,255,255,.15)}
+.overlay #play{font-size:16px}
+.overlay .time{color:rgba(255,255,255,.85);font-size:12px;margin:0 6px;white-space:nowrap}
+.speed{height:28px;padding:0 4px;border-radius:8px;border:0;background:transparent;color:#fff;font-size:12px;cursor:pointer}
+.speed option{color:#000}
+.volume{width:70px;accent-color:#fff}
+.overlay button:focus-visible,.overlay select:focus-visible,.overlay input:focus-visible{outline:2px solid rgba(255,255,255,.6)}
 
-/* ---- Full screen focus mode ---- */
-.video-wrap.fs{max-width:none;margin:0;background:#000;justify-content:flex-end;padding:0 24px 18px;position:relative}
-.video-wrap.fs video{position:absolute;inset:0;height:100%;border-radius:0;aspect-ratio:auto}
-.video-wrap.fs .scrubber,.video-wrap.fs .controls{position:relative;z-index:2}
-.video-wrap.fs .controls{opacity:.25;transition:opacity .2s}
-.video-wrap.fs:hover .controls{opacity:1}
-.video-wrap.fs .round-btn,.video-wrap.fs .ghost-btn,.video-wrap.fs .speed{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2)}
-.video-wrap.fs .time{color:#ddd}
-.video-wrap.fs .track{background:rgba(255,255,255,.2)}
-.fs-card{display:none}
-.video-wrap.fs .fs-card:not(.hidden){display:block;position:absolute;z-index:3;left:50%;bottom:110px;transform:translateX(-50%);width:min(760px,86%);max-height:50%;overflow:auto;background:rgba(10,15,25,.86);color:#fff;border-radius:16px;padding:18px 22px;cursor:pointer;box-shadow:0 10px 40px rgba(0,0,0,.5)}
-.fs-item+.fs-item{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15)}
-.fs-meta{display:flex;gap:10px;align-items:center;font-size:13px;color:#cbd2dc;margin-bottom:6px}
-.fs-meta .c-author{color:var(--lime);font-weight:600}
-.fs-meta .c-stamp{color:#cbd2dc;background:rgba(255,255,255,.12)}
-.fs-voice{color:#fff}
-.fs-text{font-size:22px;line-height:1.4;white-space:pre-wrap}
-.fs-hint{margin-top:12px;font-size:12px;color:#9aa3af;text-align:right}
+/* ---- Full screen: video fills, comments as subtitles ---- */
+.video-wrap.fs{max-width:none;margin:0;border-radius:0}
+.video-wrap.fs video{width:100%;height:100%;aspect-ratio:auto}
+.fs-caption{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);max-width:min(820px,84%);z-index:1;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:center;text-align:center;padding:8px 16px;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;font-size:22px;line-height:1.4;animation:capIn .2s ease-out;transition:bottom .25s}
+.video-wrap.idle .fs-caption{bottom:36px}
+.cap-author{color:var(--lime);font-weight:600;font-size:15px}
+.cap-text{white-space:pre-wrap}
+.cap-voice{border:0;border-radius:8px;background:rgba(255,255,255,.18);color:#fff;padding:2px 10px;font-size:15px;cursor:pointer}
+@keyframes capIn{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
 .spacer{flex:1}
 
 /* ---- Comments ---- */
@@ -164,3 +169,4 @@ video{width:100%;background:#000;border-radius:var(--radius);aspect-ratio:16/9;o
 .li-tag{font-size:11px;color:var(--muted);flex-shrink:0}
 
 @media(max-width:820px){ .uploader-main{grid-template-columns:1fr} }
+.overlay .ghost-btn{white-space:nowrap}

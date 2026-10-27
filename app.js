@@ -177,12 +177,25 @@ if (ROLE === "reviewer") {
   // prev/next comment; small epsilon so repeated presses move past the current one
   const nextComment=()=>comments.find((c)=>c.t>video.currentTime+0.3);
   const prevComment=()=>[...comments].reverse().find((c)=>c.t<video.currentTime-0.3);
-  function jumpTo(c){ if(!c)return; if(isFs()){ showFsCard([c]); } video.currentTime=c.t; }
+  function jumpTo(c){ if(c) video.currentTime=c.t; }
   $("next-comment").addEventListener("click",()=>jumpTo(nextComment()));
   $("prev-comment").addEventListener("click",()=>jumpTo(prevComment()));
 
-  // ---- full screen: focus mode. Auto-pauses at each comment and shows it as a caption card. ----
+  // ---- player chrome: controls live on the video and auto-hide while playing ----
   const wrap=$("video-wrap");
+  let idleTimer=null;
+  function wake(){ wrap.classList.remove("idle"); clearTimeout(idleTimer); idleTimer=setTimeout(()=>{ if(!video.paused) wrap.classList.add("idle"); },2500); }
+  wrap.addEventListener("mousemove",wake);
+  wrap.addEventListener("mouseleave",()=>{ if(!video.paused) wrap.classList.add("idle"); });
+  video.addEventListener("pause",()=>{ clearTimeout(idleTimer); wrap.classList.remove("idle"); });
+  video.addEventListener("play",wake);
+  // keep focus off control buttons so Space never double-fires through a focused button
+  wrap.querySelectorAll("button").forEach((b)=>b.addEventListener("mousedown",(e)=>e.preventDefault()));
+  $("speed").addEventListener("change",()=>$("speed").blur());
+  $("volume").addEventListener("change",()=>$("volume").blur());
+  video.addEventListener("click",()=>video.paused?video.play():video.pause());
+
+  // ---- full screen: no sidebar, comments show as subtitles ----
   const isFs=()=>(document.fullscreenElement||document.webkitFullscreenElement)===wrap;
   function toggleFs(){
     if(isFs()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
@@ -190,56 +203,58 @@ if (ROLE === "reviewer") {
   }
   $("fs-btn").addEventListener("click",toggleFs);
   video.addEventListener("dblclick",toggleFs);
-  const onFsChange=()=>{ wrap.classList.toggle("fs",isFs()); if(!isFs()) hideFsCard(false); lastT=video.currentTime||-1; };
+  const onFsChange=()=>{ wrap.classList.toggle("fs",isFs()); updateCaption(); };
   document.addEventListener("fullscreenchange",onFsChange);
   document.addEventListener("webkitfullscreenchange",onFsChange);
 
-  let lastT=0, cardOpen=false;
-  const fsAudio=$("fs-audio");
-  function showFsCard(list){
-    video.pause(); cardOpen=true;
-    $("fs-card-items").innerHTML=list.map((c)=>`<div class="fs-item"><div class="fs-meta"><span class="c-author">${escapeHtml(c.author)}</span><span class="c-stamp">${fmt(c.t)}</span>${c.audioUrl?'<span class="fs-voice">🎤 voice note</span>':""}</div>${c.text?`<div class="fs-text">${escapeHtml(c.text)}</div>`:""}</div>`).join("");
-    $("fs-card").classList.remove("hidden");
-    playVoiceQueue(list.filter((c)=>c.audioUrl).map((c)=>c.audioUrl));
-  }
-  // voice notes play back-to-back, then the video resumes on its own
-  function playVoiceQueue(urls){
-    if(!urls.length){ fsAudio.onended=null; return; }
-    fsAudio.src=urls[0];
-    fsAudio.onended=()=>{ if(urls.length>1) playVoiceQueue(urls.slice(1)); else hideFsCard(true); };
-    fsAudio.play().catch((e)=>logErr("fs voice note",e));
-  }
-  function hideFsCard(resume){
-    if(!cardOpen)return; cardOpen=false;
-    fsAudio.pause(); fsAudio.onended=null; fsAudio.removeAttribute("src");
-    $("fs-card").classList.add("hidden");
-    lastT=video.currentTime;
-    if(resume) video.play();
-  }
-  $("fs-card").addEventListener("click",()=>hideFsCard(true));
-  video.addEventListener("seeked",()=>{ lastT=video.currentTime; });
-  function checkFsComments(){
+  // A comment's subtitle shows for CAPTION_SECS or until the next comment takes over.
+  const CAPTION_SECS=6;
+  const fsAudio=$("fs-audio"), caption=$("fs-caption");
+  let captionId=null, duckedFrom=null;
+  function updateCaption(){
     const t=video.currentTime;
-    if(isFs() && !video.paused && !cardOpen && t>lastT){
-      const hit=comments.filter((c)=>c.t>lastT && c.t<=t);
-      if(hit.length){ lastT=t; showFsCard(hit); return; }
-    }
-    lastT=t;
+    let c=null; if(isFs()) comments.forEach((x)=>{ if(x.t<=t && t<x.t+CAPTION_SECS) c=x; });
+    if(!c && captionId && !fsAudio.paused) return; // keep a playing voice note's caption up
+    const id=c?c.id:null; if(id===captionId) return; captionId=id;
+    stopVoice();
+    if(!c){ caption.classList.add("hidden"); return; }
+    caption.innerHTML=`<span class="cap-author">${escapeHtml(c.author)}</span>${c.text?`<span class="cap-text">${escapeHtml(c.text)}</span>`:""}${c.audioUrl?`<button class="cap-voice" title="Play voice note">🎤 ▶</button>`:""}`;
+    const vb=caption.querySelector(".cap-voice");
+    if(vb){ vb.addEventListener("mousedown",(e)=>e.preventDefault()); vb.addEventListener("click",(e)=>{ e.stopPropagation(); fsAudio.paused?playVoice(c.audioUrl,vb):stopVoice(); }); }
+    caption.classList.remove("hidden");
+  }
+  // voice note plays over the video; video keeps playing but is ducked
+  function playVoice(url,btn){
+    fsAudio.src=url; duckedFrom=video.volume; video.volume=duckedFrom*0.3;
+    btn.textContent="🎤 ❚❚";
+    fsAudio.onended=()=>{ stopVoice(); updateCaption(); };
+    fsAudio.play().catch((e)=>{ logErr("voice note",e); stopVoice(); });
+  }
+  function stopVoice(){
+    fsAudio.pause(); fsAudio.onended=null;
+    if(duckedFrom!==null){ video.volume=duckedFrom; duckedFrom=null; }
+    const vb=caption.querySelector(".cap-voice"); if(vb) vb.textContent="🎤 ▶";
   }
 
+  // Page-wide shortcuts: work wherever focus is, except while typing.
+  const typing=(el)=>el && (el.isContentEditable || el.tagName==="TEXTAREA" || (el.tagName==="INPUT" && !["range","checkbox","button"].includes(el.type)));
   document.addEventListener("keydown",(e)=>{
-    if(e.target.closest("input,textarea,select") || e.metaKey || e.ctrlKey || e.altKey || !currentVideo) return;
+    if(typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || !currentVideo) return;
     const k=e.key.toLowerCase();
-    if(k===" "){ e.preventDefault(); if(cardOpen) hideFsCard(true); else video.paused?video.play():video.pause(); }
-    else if(k==="arrowleft"){ e.preventDefault(); hideFsCard(false); skip(-10); }
-    else if(k==="arrowright"){ e.preventDefault(); hideFsCard(false); skip(10); }
-    else if(k==="f") toggleFs();
+    if(k===" "||k==="k"){ e.preventDefault(); if(e.repeat) return; video.paused?video.play():video.pause(); }
+    else if(k==="arrowleft"){ e.preventDefault(); skip(-10); }
+    else if(k==="arrowright"){ e.preventDefault(); skip(10); }
+    else if(k==="f"){ e.preventDefault(); toggleFs(); }
     else if(k==="m") video.muted=!video.muted;
-    else if(k==="n"){ hideFsCard(false); jumpTo(nextComment()); }
-    else if(k==="p"){ hideFsCard(false); jumpTo(prevComment()); }
+    else if(k==="n") jumpTo(nextComment());
+    else if(k==="p") jumpTo(prevComment());
+    else return;
+    wake();
   });
+  // a focused button/checkbox would also activate on Space keyup — swallow it
+  document.addEventListener("keyup",(e)=>{ if(e.key===" " && !typing(e.target) && currentVideo) e.preventDefault(); });
 
-  video.addEventListener("timeupdate",()=>{ const d=video.duration||0; progress.style.width=d?(video.currentTime/d)*100+"%":"0%"; $("time").textContent=`${fmt(video.currentTime)} / ${fmt(d)}`; if(followPlayhead){ pinnedTime=video.currentTime; updateStamp(); } highlightActiveComment(); checkFsComments(); });
+  video.addEventListener("timeupdate",()=>{ const d=video.duration||0; progress.style.width=d?(video.currentTime/d)*100+"%":"0%"; $("time").textContent=`${fmt(video.currentTime)} / ${fmt(d)}`; if(followPlayhead){ pinnedTime=video.currentTime; updateStamp(); } highlightActiveComment(); updateCaption(); });
   video.addEventListener("loadedmetadata",()=>{ $("time").textContent=`0:00 / ${fmt(video.duration)}`; renderMarkers(); });
   video.addEventListener("error",()=>{ if(currentVideo){ logErr("video load",`code=${video.error&&video.error.code} src=${video.currentSrc}`); banner("Video failed to load. Check the R2 URL is public and CORS allows this site.","err"); } });
   track.addEventListener("click",(e)=>{ const r=track.getBoundingClientRect(); const p=(e.clientX-r.left)/r.width; if(video.duration) video.currentTime=p*video.duration; });
